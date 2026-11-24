@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Song, Not the Pin Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;700;800&family=Fira+Mono:wght@500&display=swap">
+<style>
+/* Layout: one narrow column of three playable panels, phone-first (opened from a poster QR code). */
+:root{
+  --bg:#f5f7fb; --panel:#ffffff; --ink:#14213d; --muted:#5d6678; --line:#d9dfea;
+  --brand:#042f82; --brand2:#4c28e6; --water:#2e86de; --robot:#d9601a; --song:#1f9a6e; --pin:#c0392b;
+  --wall:#4a4f57; --cell:#eef2f8; --chip:#e8edf7;
+  --display:"Fira Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Fira Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Fira Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1222; --panel:#141c31; --ink:#e7ecf7; --muted:#9aa5bd; --line:#2a3550;
+  --brand:#8fb0ff; --brand2:#a993ff; --water:#5aa9f0; --robot:#f08a4b; --song:#3cc391; --pin:#ff6b5b;
+  --wall:#aab3c5; --cell:#1b2540; --chip:#1f2a47; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1222; --panel:#141c31; --ink:#e7ecf7; --muted:#9aa5bd; --line:#2a3550;
+  --brand:#8fb0ff; --brand2:#a993ff; --water:#5aa9f0; --robot:#f08a4b; --song:#3cc391; --pin:#ff6b5b;
+  --wall:#aab3c5; --cell:#1b2540; --chip:#1f2a47; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header{display:grid;gap:6px}
+.eyebrow{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,7vw,40px);line-height:1.05;margin:0;text-wrap:balance;color:var(--brand)}
+.lede{margin:0;color:var(--ink);max-width:60ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
+.panel h2{font-family:var(--display);font-size:21px;line-height:1.2;margin:0;text-wrap:balance}
+.panel h2 span{color:var(--muted);font-weight:500;font-size:15px;display:block;margin-top:2px}
+.controls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;background:transparent;color:var(--ink);font:500 15px var(--body);padding:9px 14px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--brand);color:var(--panel)}
+.btn{border:1px solid var(--line);background:var(--chip);color:var(--ink);font:500 15px var(--body);padding:9px 14px;border-radius:10px;cursor:pointer}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--panel);font-weight:700}
+button:focus-visible,input:focus-visible{outline:3px solid var(--brand2);outline-offset:2px}
+label.toggle{display:inline-flex;gap:8px;align-items:center;font-size:15px;cursor:pointer}
+canvas{width:100%;height:auto;display:block;border-radius:10px;touch-action:manipulation}
+.status{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:15px}
+.pill{font:700 14px var(--body);padding:5px 10px;border-radius:999px;background:var(--chip);color:var(--ink)}
+.pill.good{background:color-mix(in srgb,var(--song) 20%,transparent);color:var(--song)}
+.pill.bad{background:color-mix(in srgb,var(--pin) 18%,transparent);color:var(--pin)}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.hint{font-size:14px;color:var(--muted);margin:0}
+.sliders{display:grid;grid-template-columns:1fr;gap:10px}
+.sl{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;align-items:center}
+.sl label{font-size:15px}
+.sl output{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.sl input{grid-column:1/-1;width:100%;accent-color:var(--brand)}
+@media (min-width:640px){.sliders{grid-template-columns:1fr 1fr}}
+.big{font-family:var(--display);font-weight:800;font-size:26px;color:var(--brand)}
+footer{font-size:14px;color:var(--muted);display:grid;gap:4px}
+footer a{color:var(--brand)}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Interactive demo · PALM workshop · NeurIPS 2026</div>
+  <h1>The Song, Not the Pin</h1>
+  <p class="lede">Agent A found water and tells agent B. A correct message is not always enough to act on. Try it below.</p>
+</header>
+
+<section class="panel" aria-labelledby="h-transport">
+  <h2 id="h-transport">1. Send the destination or the route?<span>Tap cells to add or remove walls.</span></h2>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="What A sends">
+      <button id="m-pin" aria-pressed="true">Pin: “water is there”</button>
+      <button id="m-song" aria-pressed="false">Song: the route</button>
+    </div>
+  </div>
+  <div class="controls">
+    <label class="toggle"><input type="checkbox" id="smart"> B can plan around walls</label>
+  </div>
+  <canvas id="cv1" width="660" height="480" aria-label="Grid world with robot B, walls and water"></canvas>
+  <div class="controls">
+    <button class="btn primary" id="play1">▶ Send and go</button>
+    <button class="btn" id="maze1">New maze</button>
+    <button class="btn" id="clear1">Clear walls</button>
+  </div>
+  <div class="status" id="st1" aria-live="polite"></div>
+  <p class="hint">A simple robot walks straight toward the pin and can get stuck. With the route it always arrives. A robot that can plan rebuilds the route itself, but it has to discover the walls first.</p>
+</section>
+
+<section class="panel" aria-labelledby="h-auth">
+  <h2 id="h-auth">2. Who gets the water?<span>4 agents, 2 water sources. Everyone hears about both.</span></h2>
+  <div class="controls">
+    <div class="seg" role="group" aria-label="Coordination">
+      <button id="c-off" aria-pressed="true">Sharing only</button>
+      <button id="c-on" aria-pressed="false">+ Claim and back off</button>
+    </div>
+  </div>
+  <canvas id="cv2" width="660" height="480" aria-label="Four agents heading to two water sources"></canvas>
+  <div class="controls">
+    <button class="btn primary" id="play2">▶ Run</button>
+    <button class="btn" id="new2">New positions</button>
+  </div>
+  <div class="status" id="st2" aria-live="polite"></div>
+  <p class="hint">Without coordination, agents rush to the same water and waste trips. With claims, the closer agent keeps the target and the others go elsewhere.</p>
+</section>
+
+<section class="panel" aria-labelledby="h-val">
+  <h2 id="h-val">3. When does a record expire?<span>A record is used while trust × confidence × fading stays above a cut-off.</span></h2>
+  <div class="sliders">
+    <div class="sl"><label for="s-trust">Trust in the sender</label><output id="o-trust"></output><input id="s-trust" type="range" min="0.2" max="1" step="0.01" value="0.8"></div>
+    <div class="sl"><label for="s-conf">Confidence of the record</label><output id="o-conf"></output><input id="s-conf" type="range" min="0.3" max="1" step="0.01" value="0.95"></div>
+    <div class="sl"><label for="s-alpha">How fast it fades</label><output id="o-alpha"></output><input id="s-alpha" type="range" min="0.02" max="0.3" step="0.005" value="0.08"></div>
+    <div class="sl"><label for="s-tau">Cut-off</label><output id="o-tau"></output><input id="s-tau" type="range" min="0.05" max="0.7" step="0.01" value="0.3"></div>
+    <div class="sl" style="grid-column:1/-1"><label for="s-age">Age of the record (steps)</label><output id="o-age"></output><input id="s-age" type="range" min="0" max="60" step="1" value="5"></div>
+  </div>
+  <canvas id="cv3" width="660" height="300" aria-label="Weight of the record over time with the cut-off line"></canvas>
+  <div class="status"><span>Expires after</span><span class="big num" id="agemax"></span><span class="pill" id="rec-state"></span></div>
+  <p class="hint">age<sub>max</sub> = (1/fade) · log(trust × confidence / cut-off). In the paper, every expiry predicted this way matched the experiment exactly.</p>
+</section>
+
+<footer>
+  <div>Paper: Zamotaev, Gusarova, Tomilov, Vatian. <em>The Song, Not the Pin: Provenance-Conditioned Route Memory for Persistent Multi-Agent Navigation.</em> ITMO University.</div>
+  <div><a href="https://openreview.net/forum?id=RRJdU7QfBs">Read the paper on OpenReview</a> · This page is a simplified illustration, not the experiment code.</div>
+</footer>
+</div>
+
+<script>
+(function(){
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+const W=11,H=8;
+function key(x,y){return y*W+x}
+function inb(x,y){return x>=0&&y>=0&&x<W&&y<H}
+const DIRS=[[1,0],[-1,0],[0,1],[0,-1]];
+function bfs(walls,s,g,blocked){ // blocked: function(x,y)->bool
+  const prev=new Map(); const q=[s]; prev.set(key(...s),null);
+  while(q.length){const [x,y]=q.shift(); if(x===g[0]&&y===g[1])break;
+    for(const [dx,dy] of DIRS){const nx=x+dx,ny=y+dy; if(!inb(nx,ny))continue; const k=key(nx,ny); if(prev.has(k))continue; if(blocked(nx,ny))continue; prev.set(k,[x,y]); q.push([nx,ny]);}}
+  if(!prev.has(key(...g)))return null; const path=[]; let c=g; while(c){path.push(c); c=prev.get(key(...c));} return path.reverse();
+}
+function setupCanvas(cv){const r=window.devicePixelRatio||1; const w=cv.width,h=cv.height; cv._w=w; cv._h=h; cv.width=w*r; cv.height=h*r; const ctx=cv.getContext('2d'); ctx.scale(r,r); return ctx;}
+
+// ---------- shared drawing ----------
+function drawGrid(ctx,cv,cell,ox,oy,walls){
+  ctx.fillStyle=css('--panel'); ctx.fillRect(0,0,cv._w,cv._h);
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+    ctx.fillStyle = walls.has(key(x,y))?css('--wall'):css('--cell');
+    roundRect(ctx,ox+x*cell+1.5,oy+y*cell+1.5,cell-3,cell-3,6); ctx.fill();
+  }
+}
+function roundRect(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+function drawWater(ctx,cx,cy,s){ctx.fillStyle=css('--water');ctx.beginPath();ctx.arc(cx,cy+s*0.15,s*0.32,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.moveTo(cx-s*0.3,cy+s*0.05);ctx.lineTo(cx+s*0.3,cy+s*0.05);ctx.lineTo(cx,cy-s*0.45);ctx.closePath();ctx.fill();}
+function drawRobot(ctx,cx,cy,s,col,label){ctx.fillStyle=col;roundRect(ctx,cx-s*0.36,cy-s*0.3,s*0.72,s*0.62,s*0.14);ctx.fill();
+  ctx.fillStyle=css('--panel');ctx.beginPath();ctx.arc(cx-s*0.15,cy-s*0.05,s*0.08,0,7);ctx.arc(cx+s*0.15,cy-s*0.05,s*0.08,0,7);ctx.fill();
+  ctx.strokeStyle=col;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(cx,cy-s*0.3);ctx.lineTo(cx,cy-s*0.46);ctx.stroke();
+  if(label){ctx.fillStyle=css('--panel');ctx.font=`700 ${Math.round(s*0.26)}px ${css('--body')}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,cx,cy+s*0.17);}}
+function drawPin(ctx,cx,cy,s){ctx.fillStyle=css('--pin');ctx.beginPath();ctx.arc(cx,cy-s*0.55,s*0.22,0,7);ctx.fill();ctx.beginPath();ctx.moveTo(cx-s*0.19,cy-s*0.45);ctx.lineTo(cx+s*0.19,cy-s*0.45);ctx.lineTo(cx,cy-s*0.12);ctx.closePath();ctx.fill();ctx.fillStyle=css('--panel');ctx.beginPath();ctx.arc(cx,cy-s*0.55,s*0.08,0,7);ctx.fill();}
+
+// ---------- panel 1 ----------
+const cv1=document.getElementById('cv1'), ctx1=setupCanvas(cv1);
+const CELL=60, OX=0, OY=0;
+const S=[1,4], G=[9,3];
+const MAZES=[
+  [[5,1],[5,2],[5,3],[5,4],[5,5],[5,6],[5,7]],
+  [[4,0],[4,1],[4,2],[4,3],[4,4],[4,5],[7,2],[7,3],[7,4],[7,5],[7,6],[7,7]],
+  [[3,2],[4,2],[5,2],[6,2],[7,2],[7,3],[7,4],[7,5],[3,5],[4,5],[5,5],[6,5]],
+  [[6,0],[6,1],[6,2],[6,3],[6,4],[6,5],[3,3],[3,4],[3,5],[3,6],[3,7]]
+];
+let mazeIdx=0, walls1=new Set(MAZES[0].map(p=>key(...p)));
+let mode='pin', smart=false, anim=null, trail=[], bpos=S.slice(), songPath=null, stat='';
+function songOf(){return bfs(walls1,S,G,(x,y)=>walls1.has(key(x,y)));}
+function draw1(){
+  drawGrid(ctx1,cv1,CELL,OX,OY,walls1);
+  const c=(p)=>[OX+p[0]*CELL+CELL/2,OY+p[1]*CELL+CELL/2];
+  if(mode==='song'&&songPath){ctx1.strokeStyle=css('--song');ctx1.lineWidth=6;ctx1.lineJoin='round';ctx1.lineCap='round';ctx1.globalAlpha=.55;ctx1.beginPath();songPath.forEach((p,i)=>{const [x,y]=c(p);i?ctx1.lineTo(x,y):ctx1.moveTo(x,y)});ctx1.stroke();ctx1.globalAlpha=1;}
+  if(trail.length>1){ctx1.strokeStyle=mode==='song'?css('--song'):(stat==='stuck'?css('--pin'):css('--robot'));ctx1.setLineDash([8,7]);ctx1.lineWidth=4;ctx1.beginPath();trail.forEach((p,i)=>{const [x,y]=c(p);i?ctx1.lineTo(x,y):ctx1.moveTo(x,y)});ctx1.stroke();ctx1.setLineDash([]);}
+  const [gx,gy]=c(G); drawWater(ctx1,gx,gy+6,CELL*0.7); if(mode==='pin')drawPin(ctx1,gx,gy,CELL);
+  const [bx,by]=c(bpos); drawRobot(ctx1,bx,by,CELL*0.95,css('--robot'),'B');
+  if(stat==='stuck'){ctx1.strokeStyle=css('--pin');ctx1.lineWidth=5;ctx1.beginPath();ctx1.moveTo(bx+14,by-30);ctx1.lineTo(bx+30,by-14);ctx1.moveTo(bx+30,by-30);ctx1.lineTo(bx+14,by-14);ctx1.stroke();}
+}
+function setStatus1(html){document.getElementById('st1').innerHTML=html;}
+function reset1(){if(anim){clearInterval(anim);anim=null;} bpos=S.slice(); trail=[S.slice()]; stat=''; songPath=songOf(); draw1(); setStatus1('<span class="pill">Ready</span>');}
+function play1(){
+  reset1(); let steps=0; const known=new Set(); const observe=(p)=>{for(const [dx,dy] of [[0,0],...DIRS]){const x=p[0]+dx,y=p[1]+dy; if(inb(x,y)&&walls1.has(key(x,y)))known.add(key(x,y));}};
+  if(mode==='song'&&!songPath){setStatus1('<span class="pill bad">No route exists: remove a wall</span>');return;}
+  let plan = mode==='song'? songPath.slice(1): null; observe(bpos);
+  const stepFn=()=>{
+    if(bpos[0]===G[0]&&bpos[1]===G[1]){stat='done';finish();return;}
+    let nxt=null;
+    if(mode==='song'){nxt=plan.shift();}
+    else if(!smart){ // greedy: step that reduces distance, prefer larger gap axis
+      const dx=Math.sign(G[0]-bpos[0]), dy=Math.sign(G[1]-bpos[1]);
+      const cands=Math.abs(G[0]-bpos[0])>=Math.abs(G[1]-bpos[1])?[[dx,0],[0,dy]]:[[0,dy],[dx,0]];
+      for(const [ax,ay] of cands){if(!ax&&!ay)continue; const x=bpos[0]+ax,y=bpos[1]+ay; if(inb(x,y)&&!walls1.has(key(x,y))){nxt=[x,y];break;}}
+      if(!nxt){stat='stuck';finish();return;}
+    } else { const p=bfs(walls1,bpos,G,(x,y)=>known.has(key(x,y))); if(!p){stat='stuck';finish();return;} nxt=p[1]; }
+    bpos=nxt; trail.push(nxt.slice()); steps++; observe(bpos); draw1();
+    if(steps>200){stat='stuck';finish();}
+  };
+  const finish=()=>{clearInterval(anim);anim=null;draw1();
+    const optimal=songPath?songPath.length-1:null;
+    if(stat==='done'){const extra=optimal!==null?steps-optimal:0;
+      setStatus1(`<span class="pill good">Arrived</span><span><span class="num">${steps}</span> steps${mode==='pin'&&extra>0?` (<span class="num">+${extra}</span> vs. the route)`:''}</span>`);}
+    else setStatus1('<span class="pill bad">Stuck at the wall</span><span>The pin alone was not enough.</span>');
+    trail.steps=steps;};
+  if(reduce){while(!anim&&stat===''&&steps<=200){const before=stat; stepFn(); if(stat)break;} if(!stat){} return;}
+  anim=setInterval(()=>{stepFn();}, 170);
+}
+function setMode(m){mode=m;document.getElementById('m-pin').setAttribute('aria-pressed',m==='pin');document.getElementById('m-song').setAttribute('aria-pressed',m==='song');document.getElementById('smart').disabled=(m==='song');reset1();}
+document.getElementById('m-pin').onclick=()=>setMode('pin');
+document.getElementById('m-song').onclick=()=>setMode('song');
+document.getElementById('smart').onchange=e=>{smart=e.target.checked;reset1();};
+document.getElementById('play1').onclick=play1;
+document.getElementById('maze1').onclick=()=>{mazeIdx=(mazeIdx+1)%MAZES.length;walls1=new Set(MAZES[mazeIdx].map(p=>key(...p)));reset1();};
+document.getElementById('clear1').onclick=()=>{walls1=new Set();reset1();};
+cv1.addEventListener('click',ev=>{const r=cv1.getBoundingClientRect();const x=Math.floor((ev.clientX-r.left)/r.width*cv1._w/CELL),y=Math.floor((ev.clientY-r.top)/r.height*cv1._h/CELL);
+  if(!inb(x,y)||(x===S[0]&&y===S[1])||(x===G[0]&&y===G[1]))return; const k=key(x,y); walls1.has(k)?walls1.delete(k):walls1.add(k); reset1();});
+reset1();
+
+// ---------- panel 2 ----------
+const cv2=document.getElementById('cv2'), ctx2=setupCanvas(cv2);
+const AG_COL=()=>[css('--robot'),css('--brand2'),css('--song'),css('--pin')];
+let coord=false, agents=[], waters=[], anim2=null;
+function rnd(n){return Math.floor(Math.random()*n)}
+function newWorld(){
+  const used=new Set(); const pick=()=>{let p;do{p=[rnd(W),rnd(H)]}while(used.has(key(...p)));used.add(key(...p));return p;};
+  waters=[pick(),pick()].map(p=>({p,taken:null}));
+  const corners=[[0,0],[W-1,0],[0,H-1],[W-1,H-1]];
+  agents=corners.map((p,i)=>{used.add(key(...p));return {id:i,p:p.slice(),target:null,done:false,wasted:0,trail:[p.slice()]};});
+  reset2();
+}
+function dist(a,b){return Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])}
+function reset2(){if(anim2){clearInterval(anim2);anim2=null;} waters.forEach(w=>{w.taken=null;w.claim=null;}); agents.forEach((a,i)=>{a.p=a.start?a.start.slice():a.p.slice();a.start=a.start||a.p.slice();a.p=a.start.slice();a.target=null;a.done=false;a.wasted=0;a.trail=[a.p.slice()];}); draw2(); setSt2('<span class="pill">Ready</span>');}
+function setSt2(h){document.getElementById('st2').innerHTML=h;}
+function draw2(){
+  drawGrid(ctx2,cv2,CELL,0,0,new Set());
+  const c=p=>[p[0]*CELL+CELL/2,p[1]*CELL+CELL/2]; const cols=AG_COL();
+  agents.forEach((a,i)=>{ if(a.trail.length>1){ctx2.strokeStyle=cols[i];ctx2.globalAlpha=.5;ctx2.setLineDash([6,6]);ctx2.lineWidth=3;ctx2.beginPath();a.trail.forEach((p,j)=>{const[x,y]=c(p);j?ctx2.lineTo(x,y):ctx2.moveTo(x,y)});ctx2.stroke();ctx2.setLineDash([]);ctx2.globalAlpha=1;}});
+  waters.forEach(w=>{const[x,y]=c(w.p); ctx2.globalAlpha=w.taken!==null?.25:1; drawWater(ctx2,x,y+6,CELL*.7); ctx2.globalAlpha=1;
+    if(w.claim!=null&&w.taken===null){ctx2.strokeStyle=cols[w.claim];ctx2.lineWidth=4;ctx2.beginPath();ctx2.arc(x,y,CELL*.44,0,7);ctx2.stroke();}});
+  agents.forEach((a,i)=>{const[x,y]=c(a.p);drawRobot(ctx2,x,y,CELL*.9,cols[i],String(i+1));});
+}
+function play2(){
+  reset2(); let t=0, dup=0;
+  const choose=(a)=>{const free=waters.filter(w=>w.taken===null&&(!coord||w.claim===null||w.claim===a.id||betterClaim(a,w)));
+    if(!free.length)return null; free.sort((u,v)=>dist(a.p,u.p)-dist(a.p,v.p)); return free[0];};
+  const betterClaim=(a,w)=>{const other=agents[w.claim]; return dist(a.p,w.p)<dist(other.p,w.p)||(dist(a.p,w.p)===dist(other.p,w.p)&&a.id<other.id);};
+  const step=()=>{t++;
+    // choose targets
+    agents.forEach(a=>{if(a.done)return; const w=choose(a);
+      if(coord){ if(a.target&&a.target!==w&&a.target.claim===a.id)a.target.claim=null; if(w){ if(w.claim!==null&&w.claim!==a.id){agents[w.claim].target=null;} w.claim=a.id; } }
+      a.target=w;});
+    if(!coord){const counts=new Map();agents.forEach(a=>{if(a.target&&!a.done)counts.set(a.target,(counts.get(a.target)||0)+1)});counts.forEach(v=>{if(v>1)dup+=v-1;});}
+    // move
+    agents.forEach(a=>{if(a.done||!a.target)return; const g=a.target.p; const dx=Math.sign(g[0]-a.p[0]),dy=Math.sign(g[1]-a.p[1]);
+      if(Math.abs(g[0]-a.p[0])>=Math.abs(g[1]-a.p[1]))a.p[0]+=dx; else a.p[1]+=dy; a.trail.push(a.p.slice());});
+    // arrivals
+    agents.forEach(a=>{if(a.done||!a.target)return; if(a.p[0]===a.target.p[0]&&a.p[1]===a.target.p[1]){ if(a.target.taken===null){a.target.taken=a.id;a.done=true;} }});
+    // wasted: agents whose target got taken by someone else
+    agents.forEach(a=>{if(!a.done&&a.target&&a.target.taken!==null&&a.target.taken!==a.id){a.wasted+=1;a.target=null;}});
+    agents.forEach(a=>{if(!a.done&&a.target===null&&waters.every(w=>w.taken!==null))a.done=true;});
+    draw2();
+    const allTaken=waters.every(w=>w.taken!==null);
+    if(allTaken||t>40){clearInterval(anim2);anim2=null; const steps=agents.reduce((s,a)=>s+a.trail.length-1,0);
+      setSt2(`<span class="pill ${coord?'good':'bad'}">${coord?'Each water claimed once':'Agents collided'}</span><span>Water collected in <span class="num">${t}</span> steps · total walking <span class="num">${steps}</span> steps</span>`);}
+  };
+  if(reduce){for(let i=0;i<60&&!waters.every(w=>w.taken!==null);i++)step(); return;}
+  anim2=setInterval(step,260);
+}
+function setCoord(v){coord=v;document.getElementById('c-off').setAttribute('aria-pressed',!v);document.getElementById('c-on').setAttribute('aria-pressed',v);reset2();}
+document.getElementById('c-off').onclick=()=>setCoord(false);
+document.getElementById('c-on').onclick=()=>setCoord(true);
+document.getElementById('play2').onclick=play2;
+document.getElementById('new2').onclick=()=>{agents=[];newWorld();};
+// a deterministic first world where everyone is nearest to the same water
+waters=[{p:[5,3],taken:null},{p:[9,7],taken:null}];
+agents=[[0,0],[W-1,0],[0,H-1],[3,7]].map((p,i)=>({id:i,p:p.slice(),start:p.slice(),target:null,done:false,wasted:0,trail:[p.slice()]}));
+reset2();
+
+// ---------- panel 3 ----------
+const cv3=document.getElementById('cv3'), ctx3=setupCanvas(cv3);
+const ids=['trust','conf','alpha','tau','age']; const el={}; ids.forEach(i=>{el[i]=document.getElementById('s-'+i);el[i].addEventListener('input',draw3);});
+function draw3(){
+  const ti=+el.trust.value,c=+el.conf.value,a=+el.alpha.value,tau=+el.tau.value,age=+el.age.value;
+  document.getElementById('o-trust').textContent=ti.toFixed(2);document.getElementById('o-conf').textContent=c.toFixed(2);
+  document.getElementById('o-alpha').textContent=a.toFixed(3);document.getElementById('o-tau').textContent=tau.toFixed(2);document.getElementById('o-age').textContent=age;
+  const amax = ti*c>tau ? Math.log(ti*c/tau)/a : null;
+  document.getElementById('agemax').textContent = amax===null?'never usable':`${amax.toFixed(1)} steps`;
+  const used = amax!==null && age<=amax; const st=document.getElementById('rec-state');
+  st.textContent=used?'At this age: still used':'At this age: expired'; st.className='pill '+(used?'good':'bad');
+  const w=cv3._w,h=cv3._h,L=44,R=12,T=14,B=34,pw=w-L-R,ph=h-T-B,X=v=>L+v/60*pw,Y=v=>T+(1-v)*ph;
+  ctx3.fillStyle=css('--panel');ctx3.fillRect(0,0,w,h);
+  ctx3.strokeStyle=css('--line');ctx3.lineWidth=1;ctx3.font=`13px ${css('--body')}`;ctx3.fillStyle=css('--muted');ctx3.textAlign='right';ctx3.textBaseline='middle';
+  [0,.25,.5,.75,1].forEach(v=>{ctx3.beginPath();ctx3.moveTo(L,Y(v));ctx3.lineTo(w-R,Y(v));ctx3.stroke();ctx3.fillText(v.toFixed(2),L-6,Y(v));});
+  ctx3.textAlign='center';ctx3.textBaseline='top';[0,10,20,30,40,50,60].forEach(v=>ctx3.fillText(v,X(v),h-B+6));
+  if(amax!==null&&amax<=60){ctx3.fillStyle=color(css('--pin'),.10);ctx3.fillRect(X(amax),T,w-R-X(amax),ph);}
+  ctx3.strokeStyle=css('--pin');ctx3.setLineDash([7,6]);ctx3.lineWidth=2;ctx3.beginPath();ctx3.moveTo(L,Y(tau));ctx3.lineTo(w-R,Y(tau));ctx3.stroke();ctx3.setLineDash([]);
+  ctx3.fillStyle=css('--pin');ctx3.textAlign='right';ctx3.textBaseline='bottom';ctx3.fillText('cut-off',w-R-4,Y(tau)-3);
+  ctx3.strokeStyle=css('--brand');ctx3.lineWidth=3.5;ctx3.beginPath();for(let s=0;s<=60;s+=.5){const v=ti*c*Math.exp(-a*s);const x=X(s),y=Y(v);s?ctx3.lineTo(x,y):ctx3.moveTo(x,y);}ctx3.stroke();
+  const v=ti*c*Math.exp(-a*age);ctx3.fillStyle=used?css('--song'):css('--pin');ctx3.beginPath();ctx3.arc(X(age),Y(v),7,0,7);ctx3.fill();
+  if(amax!==null&&amax<=60){ctx3.strokeStyle=css('--muted');ctx3.lineWidth=1.5;ctx3.beginPath();ctx3.moveTo(X(amax),T);ctx3.lineTo(X(amax),h-B);ctx3.stroke();}
+}
+function color(hex,a){const m=hex.replace('#','');if(m.length!==6)return hex;const n=parseInt(m,16);return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`;}
+draw3();
+const mq=window.matchMedia&&matchMedia('(prefers-color-scheme: dark)'); if(mq&&mq.addEventListener)mq.addEventListener('change',()=>{draw1();draw2();draw3();});
+new MutationObserver(()=>{draw1();draw2();draw3();}).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+})();
+</script>
+</body>
+</html>

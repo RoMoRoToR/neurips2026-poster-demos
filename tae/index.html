@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Q/R/M/C Fault Finder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;500;700;800&family=Fira+Mono:wght@500&display=swap">
+<style>
+/* Layout: three steps down one phone-width column: break the agent, read the diagnosis, try a repair. */
+:root{
+  --bg:#f5f7fb; --panel:#ffffff; --ink:#14213d; --muted:#5d6678; --line:#d9dfea;
+  --brand:#042f82; --brand2:#4c28e6; --good:#1f8a4c; --bad:#c0392b; --clean:#9aa3b2; --chip:#e8edf7; --flag:#fbe3df;
+  --display:"Fira Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --body:"Fira Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Fira Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1222; --panel:#141c31; --ink:#e7ecf7; --muted:#9aa5bd; --line:#2a3550;
+  --brand:#8fb0ff; --brand2:#a993ff; --good:#4cc283; --bad:#ff6b5b; --clean:#5d6886; --chip:#1f2a47; --flag:#3a1f26; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1222; --panel:#141c31; --ink:#e7ecf7; --muted:#9aa5bd; --line:#2a3550;
+  --brand:#8fb0ff; --brand2:#a993ff; --good:#4cc283; --bad:#ff6b5b; --clean:#5d6886; --chip:#1f2a47; --flag:#3a1f26; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px}
+header{display:grid;gap:6px}
+.eyebrow{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(28px,7vw,40px);line-height:1.05;margin:0;color:var(--brand);text-wrap:balance}
+.lede{margin:0;max-width:60ch}
+.stages{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:8px;display:grid;gap:2px;min-width:0}
+.stage b{font:800 20px var(--display);color:var(--brand)}
+.stage span{font-size:13px;color:var(--muted);line-height:1.25}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:grid;gap:12px;min-width:0}
+.panel h2{font-family:var(--display);font-size:21px;line-height:1.2;margin:0;text-wrap:balance}
+.panel h2 small{display:block;color:var(--muted);font-weight:500;font-size:15px;margin-top:2px}
+.faults{display:grid;gap:8px}
+.fault{display:flex;gap:10px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:10px 12px;cursor:pointer;background:transparent;color:var(--ink);font:500 15px var(--body);text-align:left}
+.fault[aria-pressed="true"]{border-color:var(--brand);background:var(--chip)}
+.fault .tag{font:700 12px var(--body);color:var(--muted);margin-left:auto;white-space:nowrap}
+.btn{border:1px solid var(--line);background:var(--chip);color:var(--ink);font:500 15px var(--body);padding:10px 14px;border-radius:10px;cursor:pointer}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:var(--panel);font-weight:700}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+button:focus-visible{outline:3px solid var(--brand2);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.log{font-family:var(--mono);font-size:14px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:4px;overflow-x:auto}
+.log .ln{display:grid;grid-template-columns:24px minmax(0,1fr) 20px;gap:8px;align-items:center;padding:4px 6px;border-radius:6px}
+.log .ln.first{background:var(--flag);outline:1.5px solid var(--bad)}
+.log .ln .s{font:700 12px var(--body);width:22px;height:22px;border-radius:50%;display:grid;place-items:center;background:var(--brand);color:var(--panel)}
+.log .ln.after .s{background:var(--clean)}
+.log .ok{color:var(--good);font-weight:700}.log .no{color:var(--bad);font-weight:700}.log .gray{color:var(--clean);font-weight:700}
+.bars{display:grid;gap:10px}
+.bar{display:grid;grid-template-columns:28px minmax(0,1fr) 92px;gap:8px;align-items:center}
+.bar .lab{font:800 18px var(--display);color:var(--brand)}
+.track{position:relative;height:30px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.fill{position:absolute;left:0;height:13px;border-radius:3px}
+.fill.c{top:2px;background:var(--clean)}
+.fill.b{bottom:2px;background:var(--brand)}
+.fill.b.drop{background:var(--bad)}
+.thr{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);opacity:.55}
+.val{font-family:var(--mono);font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;text-align:right}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.verdict{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.vbox{border:1px solid var(--line);border-radius:10px;padding:10px;display:grid;gap:2px}
+.vbox .k{font-size:13px;color:var(--muted)}
+.vbox .v{font:800 20px var(--display)}
+.vbox.ours{border-color:var(--brand)}
+.vbox.ours .v{color:var(--brand)}
+.repairs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.repair{border:1px solid var(--line);border-radius:10px;padding:10px;background:transparent;color:var(--ink);font:500 14px var(--body);text-align:left;cursor:pointer;display:grid;gap:3px}
+.repair b{font:700 15px var(--display)}
+.repair .sug{font:700 12px var(--body);color:var(--brand)}
+.repair[aria-pressed="true"]{background:var(--chip);border-color:var(--brand)}
+.result{font-size:16px}
+.pill{font:700 14px var(--body);padding:5px 10px;border-radius:999px;background:var(--chip)}
+.pill.good{color:var(--good);background:color-mix(in srgb,var(--good) 18%,transparent)}
+.pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,transparent)}
+.hint{font-size:14px;color:var(--muted);margin:0}
+footer{font-size:14px;color:var(--muted);display:grid;gap:4px}
+footer a{color:var(--brand)}
+@media (max-width:420px){.repairs,.verdict{grid-template-columns:1fr}.stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">Interactive demo · TAE workshop · NeurIPS 2026</div>
+  <h1>Which stage broke?</h1>
+  <p class="lede">An agent must fetch a key in a four-room house. A success score only says whether it failed. Q/R/M/C reads four events from the agent's log and finds the stage that broke.</p>
+</header>
+
+<div class="stages" aria-label="The four stages">
+  <div class="stage"><b>Q</b><span>Query: did it ask its memory?</span></div>
+  <div class="stage"><b>R</b><span>Retrieval: was the right record returned?</span></div>
+  <div class="stage"><b>M</b><span>Materialization: did it commit to the true place?</span></div>
+  <div class="stage"><b>C</b><span>Completion: did it get the key?</span></div>
+</div>
+
+<section class="panel" aria-labelledby="h1s">
+  <h2 id="h1s">1. Break the agent<small>Pick one fault. The diagnosis does not see your choice.</small></h2>
+  <div class="faults" id="faults"></div>
+  <div class="row"><button class="btn primary" id="run">▶ Run 20 episodes</button></div>
+</section>
+
+<section class="panel" aria-labelledby="h2s">
+  <h2 id="h2s">2. Read the diagnosis<small>Each stage is compared with a healthy agent. The first stage that drops below the line is the diagnosis.</small></h2>
+  <div class="log" id="log" aria-label="One sample episode"></div>
+  <div class="legend"><span><i style="background:var(--clean)"></i>healthy agent</span><span><i style="background:var(--brand)"></i>your agent</span><span><i style="background:var(--ink);opacity:.55;width:3px"></i>alarm line</span></div>
+  <div class="bars" id="bars"></div>
+  <div class="verdict">
+    <div class="vbox"><span class="k">Success score says</span><span class="v" id="v-score">–</span></div>
+    <div class="vbox ours"><span class="k">Q/R/M/C says</span><span class="v" id="v-qrmc">–</span></div>
+  </div>
+</section>
+
+<section class="panel" aria-labelledby="h3s">
+  <h2 id="h3s">3. Try a repair<small>A good diagnosis should point to the repair that works.</small></h2>
+  <div class="repairs" id="repairs"></div>
+  <div class="row result" id="result" aria-live="polite"></div>
+  <p class="hint">Numbers here come from a small simulation for illustration. In the paper, the diagnosis named the right stage in 87% of 63 blinded tests with real LLM agents.</p>
+</section>
+
+<footer>
+  <div>Paper: Zamotaev, Gusarova, Tomilov, Vatian. <em>Q/R/M/C: An Intervention-Validated Evaluation Protocol for Memory-Based Agents.</em> ITMO University.</div>
+  <div><a href="https://openreview.net/forum?id=oJjDExqOEo">Read the paper on OpenReview</a></div>
+</footer>
+</div>
+
+<script>
+(function(){
+const HEALTHY={q:.97,r:.94,m:.93,c:.94};
+const FAULTS=[
+  {id:'none',name:'No fault (healthy agent)',tag:'control',set:{}},
+  {id:'Q',name:'Remove the memory tool',tag:'',set:{q:.04}},
+  {id:'R',name:'Put an outdated record first',tag:'',set:{r:.18}},
+  {id:'M',name:'Add a look-alike key in another room',tag:'',set:{m:.30}},
+  {id:'C',name:'Cut the step budget',tag:'',set:{c:.28}},
+];
+const REPAIRS=[
+  {st:'Q',name:'Restore the query channel',desc:'give the agent its memory tool back'},
+  {st:'R',name:'Fix the record',desc:'refresh or merge memory records'},
+  {st:'M',name:'Remove false records',desc:'disambiguate look-alike targets'},
+  {st:'C',name:'More budget',desc:'more steps, reliable tools'},
+];
+const ST=['Q','R','M','C'];
+let fault=FAULTS[2], diag=null, repair=null, lastRates=null;
+function rng(seed){let s=seed>>>0;return()=>{s=(s*1664525+1013904223)>>>0;return s/4294967296;}}
+let seed=7;
+function probs(f,rep){const p=Object.assign({},HEALTHY,f.set); if(rep)p[rep.toLowerCase()]=HEALTHY[rep.toLowerCase()]; return p;}
+function episode(p,r){ // chain: later events need earlier ones
+  const q=r()<p.q, rr=q&&r()<p.r, m=rr&&r()<p.m, c=m&&r()<p.c; return {q,r:rr,m,c};
+}
+function runMany(p,n,r){const k={q:0,r:0,m:0,c:0};const eps=[];for(let i=0;i<n;i++){const e=episode(p,r);eps.push(e);ST.forEach(s=>{if(e[s.toLowerCase()])k[s.toLowerCase()]++;});}
+  const rate={};ST.forEach(s=>rate[s]=k[s.toLowerCase()]/n);return {rate,eps};}
+function diagnose(clean,broken){for(const s of ST){if(broken[s]<0.75*clean[s])return s;}return null;}
+
+const fEl=document.getElementById('faults');
+FAULTS.forEach(f=>{const b=document.createElement('button');b.className='fault';b.type='button';b.innerHTML=`<span>${f.name}</span>${f.tag?`<span class="tag">${f.tag}</span>`:''}`;
+  b.setAttribute('aria-pressed',f===fault);b.onclick=()=>{fault=f;[...fEl.children].forEach((c,i)=>c.setAttribute('aria-pressed',FAULTS[i]===f));run();};fEl.appendChild(b);});
+const rEl=document.getElementById('repairs');
+REPAIRS.forEach(rp=>{const b=document.createElement('button');b.className='repair';b.type='button';b.dataset.st=rp.st;
+  b.innerHTML=`<span class="sug" hidden>suggested by Q/R/M/C</span><b>${rp.st} · ${rp.name}</b><span>${rp.desc}</span>`;
+  b.onclick=()=>applyRepair(rp);rEl.appendChild(b);});
+
+function sampleLog(eps){
+  // show a failing episode if there is one, else a successful one
+  const e=eps.find(x=>!x.c)||eps[0];
+  const lines=[
+    {s:'Q',ok:e.q,txt:e.q?'recall("key")':'(no recall: the agent guesses)'},
+    {s:'R',ok:e.r,txt:!e.q?'(nothing retrieved)':e.r?'→ "key: hall"':'→ "key: kitchen"  (true place: hall)'},
+    {s:'M',ok:e.m,txt:!e.r?'goto(kitchen)':e.m?'goto(hall)':'goto(study)  (look-alike key)'},
+    {s:'C',ok:e.c,txt:!e.m?'take(key)':e.c?'take(key)  ✓ got it':'take(key)  (out of steps)'},
+  ];
+  const firstFail=lines.findIndex(l=>!l.ok);
+  document.getElementById('log').innerHTML=`<div style="font-family:var(--body);font-size:13px;color:var(--muted)">one sample episode from your agent</div>`+
+    lines.map((l,i)=>`<div class="ln ${i===firstFail?'first':''} ${firstFail>=0&&i>firstFail?'after':''}"><span class="s">${l.s}</span><span>${l.txt}</span><span class="${l.ok?'ok':(i===firstFail?'no':'gray')}">${l.ok?'✓':'✗'}</span></div>`).join('');
+}
+function drawBars(clean,broken,d){
+  document.getElementById('bars').innerHTML=ST.map(s=>{const thr=0.75*clean[s];const drop=broken[s]<thr;
+    return `<div class="bar"><span class="lab">${s}</span><div class="track" role="img" aria-label="${s}: healthy ${Math.round(clean[s]*100)}%, yours ${Math.round(broken[s]*100)}%">
+      <div class="fill c" style="width:${clean[s]*100}%"></div><div class="fill b ${s===d?'drop':''}" style="width:${broken[s]*100}%"></div><div class="thr" style="left:${thr*100}%"></div></div>
+      <span class="val">${Math.round(clean[s]*100)}% → ${Math.round(broken[s]*100)}%</span></div>`;}).join('');
+}
+function run(){
+  seed+=13; const r=rng(seed);
+  const clean=runMany(HEALTHY,20,r).rate; const res=runMany(probs(fault,null),20,r); const broken=res.rate;
+  diag=diagnose(clean,broken); lastRates={clean,broken};
+  sampleLog(res.eps); drawBars(clean,broken,diag);
+  const succ=broken.C; document.getElementById('v-score').textContent = succ<0.75*clean.C?`failed (${Math.round(succ*100)}%)`:`fine (${Math.round(succ*100)}%)`;
+  document.getElementById('v-qrmc').textContent = diag?`stage ${diag} broke`:'nothing broke';
+  [...rEl.children].forEach(b=>{b.querySelector('.sug').hidden=b.dataset.st!==diag;b.setAttribute('aria-pressed','false');});
+  document.getElementById('result').innerHTML = diag?'<span>Pick a repair above to see whether it helps.</span>':'<span class="pill good">No repair needed</span>';
+}
+function applyRepair(rp){
+  [...rEl.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.st===rp.st));
+  seed+=29; const r=rng(seed); const before=lastRates?lastRates.broken.C:0;
+  const after=runMany(probs(fault,rp.st),20,r).rate.C;
+  const helped=after>before+0.2;
+  document.getElementById('result').innerHTML=`<span class="pill ${helped?'good':'bad'}">${helped?'Repair works':'No real change'}</span><span>Success <span style="font-family:var(--mono)">${Math.round(before*100)}% → ${Math.round(after*100)}%</span>${rp.st===diag?' · this is the repair Q/R/M/C suggested':''}</span>`;
+}
+document.getElementById('run').onclick=run;
+run();
+})();
+</script>
+</body>
+</html>
