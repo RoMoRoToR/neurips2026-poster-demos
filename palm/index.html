@@ -115,7 +115,7 @@ footer a{color:var(--brand)}
     <button class="btn" id="clear1">Clear walls</button>
   </div>
   <div class="status" id="st1" aria-live="polite"></div>
-  <p class="hint">Routes are not new. The point is the receiver: a robot that cannot plan needs the route, while a robot that can plan is fine with the pin and only takes longer. Switch “B can plan around walls” to see both.</p>
+  <p class="hint">Routes are not new. The point is the receiver: a robot that cannot plan needs the route, while a robot that can plan is fine with the pin and only takes longer. Switch “B can plan around walls” to see both. In the paper, a planning robot reached 20/20 from the pin but took <strong>24% longer</strong>.</p>
 </section>
 
 <section class="panel" aria-labelledby="h-auth">
@@ -132,7 +132,7 @@ footer a{color:var(--brand)}
     <button class="btn" id="new2">New positions</button>
   </div>
   <div class="status" id="st2" aria-live="polite"></div>
-  <p class="hint">Everyone already knows where the water is, so better information does not help here. Coordination does: with claims, the closer agent keeps the target and the others go elsewhere.</p>
+  <p class="hint">Everyone already knows where the water is, so better information does not help here. Coordination does: with claims, the closer agent keeps the target and the others go elsewhere. In the paper, records were correct and fresh, yet agents made <strong>7.85 duplicate claims</strong> per episode; claim-and-back-off raised success by <strong>3.7 points</strong>.</p>
 </section>
 
 <section class="panel" aria-labelledby="h-val">
@@ -151,7 +151,7 @@ footer a{color:var(--brand)}
 
 <section class="panel" aria-labelledby="h-new">
   <h2 id="h-new">What is new here?</h2>
-  <p style="margin:0">Each mechanism exists on its own: routes in robot planning, reservations in multi-agent planning, expiry in caches, map alignment in robotics. The paper joins them into <strong>one contract for shared memory</strong> and shows that each condition is needed on its own: break any one, and a correct record leads to failure.</p>
+  <p style="margin:0">Memory systems already control <strong>who may read</strong> a record (access control, timestamps, provenance tags). This paper asks a different question: <strong>may this record drive an action?</strong> Permission to act becomes part of the memory itself, and each of the five conditions is tested on its own: break any one, and a correct record leads to failure.</p>
   <p class="hint">Limits: mostly simple grid worlds; the LLM test is small.</p>
 </section>
 

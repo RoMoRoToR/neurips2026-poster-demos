@@ -122,10 +122,10 @@ footer a{color:var(--brand)}
 </header>
 
 <div class="stages" aria-label="The four stages">
-  <div class="stage"><b>Q</b><span>Query: did it ask its memory?</span></div>
-  <div class="stage"><b>R</b><span>Retrieval: was the right record returned?</span></div>
-  <div class="stage"><b>M</b><span>Materialization: did it commit to the true place?</span></div>
-  <div class="stage"><b>C</b><span>Completion: did it get the key?</span></div>
+  <div class="stage"><b>Q</b><span>Query: did it ask its memory?<br><i>≈ memory tool call</i></span></div>
+  <div class="stage"><b>R</b><span>Retrieval: was the right record returned?<br><i>≈ retrieval hit</i></span></div>
+  <div class="stage"><b>M</b><span>Materialization: did it commit to the true place?<br><i>≈ grounding / plan</i></span></div>
+  <div class="stage"><b>C</b><span>Completion: did it get the key?<br><i>≈ task success</i></span></div>
 </div>
 
 <section class="panel" aria-labelledby="h0s">
@@ -164,7 +164,7 @@ footer a{color:var(--brand)}
 
 <section class="panel" aria-labelledby="h-new">
   <h2 id="h-new">What is new here?</h2>
-  <p style="margin:0">Stage-level checks already exist, such as conformance checking and progress milestones. Here the stages are <strong>events read from the agent's log</strong>, not guesses about its reasoning, and the diagnosis is <strong>tested</strong>: blind fault finding, the repair it picks, and controlled experiments that make one stage perfect.</p>
+  <p style="margin:0">Splitting a decision into stages is just the chain rule. The contribution is to treat the diagnosis as a <strong>hypothesis and test it</strong>: a rule fixed before looking at the answers, manipulation checks, held-out controls, and the key question: <strong>does acting on the diagnosis help?</strong> It also reports where it does not: a wrong fix can hurt (try “More budget” on the healthy agent above).</p>
   <p class="hint">Limits: small local LLMs; against a simpler two-stage rule, the repair gain is not settled.</p>
 </section>
 
@@ -242,8 +242,10 @@ function run(){
 function applyRepair(rp){
   [...rEl.children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.st===rp.st));
   seed+=29; const r=rng(seed); const before=lastRates?lastRates.broken.C:0;
-  const after=runMany(probs(fault,rp.st),20,r).rate.C;
-  const helped=after>before+0.2;
+  const pp=probs(fault,rp.st); const hurt=(fault.id==='none'&&rp.st==='C'); if(hurt)pp.c=0.76;
+  const after=runMany(pp,hurt?400:20,r).rate.C; const before2=hurt?runMany(probs(fault,null),400,r).rate.C:before;
+  const helped=after>before2+0.2;
+  if(hurt){document.getElementById('result').innerHTML=`<span class="pill bad">Wrong fix hurts</span><span>Success <span style="font-family:var(--mono)">${Math.round(before2*100)}% → ${Math.round(after*100)}%</span> · the paper saw the same: more budget for a healthy agent lowered completion by 0.15</span>`;return;}
   document.getElementById('result').innerHTML=`<span class="pill ${helped?'good':'bad'}">${helped?'Repair works':'No real change'}</span><span>Success <span style="font-family:var(--mono)">${Math.round(before*100)}% → ${Math.round(after*100)}%</span>${rp.st===diag?' · this is the repair Q/R/M/C suggested':''}</span>`;
 }
 document.getElementById('run').onclick=run;
