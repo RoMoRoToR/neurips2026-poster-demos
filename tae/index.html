@@ -79,6 +79,18 @@ button:focus-visible{outline:3px solid var(--brand2);outline-offset:2px}
 .pill.good{color:var(--good);background:color-mix(in srgb,var(--good) 18%,transparent)}
 .pill.bad{color:var(--bad);background:color-mix(in srgb,var(--bad) 16%,transparent)}
 .hint{font-size:14px;color:var(--muted);margin:0}
+.twins{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.twin{border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;gap:6px;min-width:0}
+.tw-h{font:700 16px var(--display)}
+.tw-score{font:800 30px var(--display);color:var(--brand)}
+.tw-bars{display:grid;gap:5px}
+.tw-row{display:grid;grid-template-columns:18px minmax(0,1fr) 40px;gap:6px;align-items:center;font-size:13px}
+.tw-row b{font:800 15px var(--display);color:var(--brand)}
+.tw-track{height:12px;background:var(--bg);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.tw-fill{height:100%;background:var(--clean)}
+.tw-row.hit .tw-fill{background:var(--bad)}
+.tw-row span:last-child{font-family:var(--mono);color:var(--muted);text-align:right}
+.tw-fix{font-size:14px;font-weight:700;color:var(--good)}
 footer{font-size:14px;color:var(--muted);display:grid;gap:4px}
 footer a{color:var(--brand)}
 @media (max-width:420px){.repairs,.verdict{grid-template-columns:1fr}.stages{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -90,7 +102,7 @@ footer a{color:var(--brand)}
 <header>
   <div class="eyebrow">Interactive demo · TAE workshop · NeurIPS 2026</div>
   <h1>Which stage broke?</h1>
-  <p class="lede">An agent must fetch a key in a four-room house. A success score only says whether it failed. Q/R/M/C reads four events from the agent's log and finds the stage that broke.</p>
+  <p class="lede">A success score says <strong>that</strong> an agent failed, not <strong>where</strong>. Q/R/M/C reads four events from the agent's log and names the stage that broke. A diagnosis is worth trusting only if fixing that stage actually helps.</p>
 </header>
 
 <div class="stages" aria-label="The four stages">
@@ -100,14 +112,24 @@ footer a{color:var(--brand)}
   <div class="stage"><b>C</b><span>Completion: did it get the key?</span></div>
 </div>
 
+<section class="panel" aria-labelledby="h0s">
+  <h2 id="h0s">1. Same score, different problem<small>Two agents fetch a key. Both succeed 30% of the time.</small></h2>
+  <div class="twins">
+    <div class="twin"><div class="tw-h">Agent X</div><div class="tw-score">30%</div><div class="tw-bars" id="twX" hidden></div></div>
+    <div class="twin"><div class="tw-h">Agent Y</div><div class="tw-score">30%</div><div class="tw-bars" id="twY" hidden></div></div>
+  </div>
+  <div class="row"><button class="btn primary" id="reveal">Look inside the logs</button></div>
+  <p class="hint" id="twin-note">The score is the same. Which fix would you choose for each?</p>
+</section>
+
 <section class="panel" aria-labelledby="h1s">
-  <h2 id="h1s">1. Break the agent<small>Pick one fault. The diagnosis does not see your choice.</small></h2>
+  <h2 id="h1s">2. Break the agent<small>Pick one fault. The diagnosis does not see your choice.</small></h2>
   <div class="faults" id="faults"></div>
   <div class="row"><button class="btn primary" id="run">▶ Run 20 episodes</button></div>
 </section>
 
 <section class="panel" aria-labelledby="h2s">
-  <h2 id="h2s">2. Read the diagnosis<small>Each stage is compared with a healthy agent. The first stage that drops below the line is the diagnosis.</small></h2>
+  <h2 id="h2s">3. Read the diagnosis<small>Each stage is compared with a healthy agent. The first stage that drops below the line is the diagnosis.</small></h2>
   <div class="log" id="log" aria-label="One sample episode"></div>
   <div class="legend"><span><i style="background:var(--clean)"></i>healthy agent</span><span><i style="background:var(--brand)"></i>your agent</span><span><i style="background:var(--ink);opacity:.55;width:3px"></i>alarm line</span></div>
   <div class="bars" id="bars"></div>
@@ -118,10 +140,16 @@ footer a{color:var(--brand)}
 </section>
 
 <section class="panel" aria-labelledby="h3s">
-  <h2 id="h3s">3. Try a repair<small>A good diagnosis should point to the repair that works.</small></h2>
+  <h2 id="h3s">4. Try a repair<small>This is how we test a diagnosis: does the repair it suggests actually work?</small></h2>
   <div class="repairs" id="repairs"></div>
   <div class="row result" id="result" aria-live="polite"></div>
   <p class="hint">Numbers here come from a small simulation for illustration. In the paper, the diagnosis named the right stage in 87% of 63 blinded tests with real LLM agents.</p>
+</section>
+
+<section class="panel" aria-labelledby="h-new">
+  <h2 id="h-new">What is new here?</h2>
+  <p style="margin:0">Stage-level checks already exist, such as conformance checking and progress milestones. Here the stages are <strong>events read from the agent's log</strong>, not guesses about its reasoning, and the diagnosis is <strong>tested</strong>: blind fault finding, the repair it picks, and controlled experiments that make one stage perfect.</p>
+  <p class="hint">Limits: small local LLMs; against a simpler two-stage rule, the repair gain is not settled.</p>
 </section>
 
 <footer>
@@ -203,6 +231,10 @@ function applyRepair(rp){
   document.getElementById('result').innerHTML=`<span class="pill ${helped?'good':'bad'}">${helped?'Repair works':'No real change'}</span><span>Success <span style="font-family:var(--mono)">${Math.round(before*100)}% → ${Math.round(after*100)}%</span>${rp.st===diag?' · this is the repair Q/R/M/C suggested':''}</span>`;
 }
 document.getElementById('run').onclick=run;
+const TWINS={twX:{rates:[97,31,30,30],hit:1,fix:'Broke at R: fix the record'},twY:{rates:[97,93,90,30],hit:3,fix:'Broke at C: give more budget'}};
+Object.entries(TWINS).forEach(([id,t])=>{document.getElementById(id).innerHTML=ST.map((s,i)=>`<div class="tw-row ${i===t.hit?'hit':''}"><b>${s}</b><div class="tw-track"><div class="tw-fill" style="width:${t.rates[i]}%"></div></div><span>${t.rates[i]}%</span></div>`).join('')+`<div class="tw-fix">${t.fix}</div>`;});
+document.getElementById('reveal').onclick=()=>{document.getElementById('twX').hidden=false;document.getElementById('twY').hidden=false;
+  document.getElementById('twin-note').textContent='Same score, different broken stage, different fix. Fixing the record would not help agent Y at all.';};
 run();
 })();
 </script>
