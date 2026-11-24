@@ -67,6 +67,7 @@ canvas{width:100%;height:auto;display:block;border-radius:10px;touch-action:mani
 .check .q{color:var(--muted);font-size:14px}
 .check.off{border-color:var(--pin);background:color-mix(in srgb,var(--pin) 8%,transparent)}
 .check .why{grid-column:2;color:var(--pin);font-size:14px;font-weight:500}
+.steps{margin:0;padding-left:20px;display:grid;gap:4px;font-size:15px}
 .verdict-line{font:700 18px var(--display);padding:10px 12px;border-radius:10px}
 .verdict-line.ok{color:var(--song);background:color-mix(in srgb,var(--song) 14%,transparent)}
 .verdict-line.no{color:var(--pin);background:color-mix(in srgb,var(--pin) 12%,transparent)}
@@ -86,7 +87,8 @@ footer a{color:var(--brand)}
 </header>
 
 <section class="panel" aria-labelledby="h-checks">
-  <h2 id="h-checks">1. The obvious fix: send the full route. Is that enough?<span>A sends B a correct route to the water. Untick a condition and press Go.</span></h2>
+  <h2 id="h-checks">1. The obvious fix: send the full route. Is that enough?<span>Agent A has sent B a correct route to the water.</span></h2>
+  <ol class="steps"><li>Press <b>Go</b>: with all conditions met, B follows the route and drinks.</li><li>Untick <b>one</b> condition and press <b>Go</b> again. The route stays exactly the same, but now it ends badly.</li></ol>
   <div class="record"><span class="rec-k">Record from agent A</span><span class="rec-v">Route to water: up, along the top, down</span><span class="rec-s">correct route</span></div>
   <canvas id="cv0" width="660" height="480" aria-label="Robot B, a wall, the water and the route from agent A"></canvas>
   <div class="checks" id="checks"></div>
@@ -196,47 +198,60 @@ const C0=60, cv0=document.getElementById('cv0'), ctx0=setupCanvas(cv0);
 const WALL0=new Set([2,3,4,5,6,7].map(y=>key(5,y)));
 const ROUTE0=[[1,6],[1,1],[9,1],[9,6]];
 function expand(pts){const out=[pts[0].slice()];for(let k=1;k<pts.length;k++){let [x,y]=out[out.length-1];const [tx,ty]=pts[k];while(x!==tx||y!==ty){x+=Math.sign(tx-x);y+=Math.sign(ty-y);out.push([x,y]);}}return out;}
-const PATH0=expand(ROUTE0);
+const PATH0=expand(ROUTE0), CPATH=expand([[9,2],[9,5]]);
 const CHECKS=[
-  {id:'tr',n:'Transport',q:'How do I get there?',why:'',fixed:true},
-  {id:'id',n:'Identity',q:'Which of B’s places is it?',why:'B’s map is turned. The route is followed exactly, but it ends at the wrong cell.'},
-  {id:'va',n:'Validity',q:'Is it still fresh?',why:'The route is too old for how much B trusts A. B arrives, and the water is gone.'},
-  {id:'au',n:'Authority',q:'May B act on it now?',why:'Agent C claimed this water first. B walks the whole way for nothing.'},
-  {id:'pr',n:'Provenance',q:'Who said so?',why:'Nobody knows who sent the route, so B cannot tell a reliable tip from a rumour.'},
+  {id:'tr',n:'Transport',q:'How do I get there?',fixed:true},
+  {id:'id',n:'Identity',q:'Which of B’s places is it?',why:'B’s map is turned, so the same route leads to a different place. The real water is elsewhere.',banner:'B’s map is turned'},
+  {id:'va',n:'Validity',q:'Is it still fresh?',why:'The route is old. While B walks, the water dries up.',banner:'This route is old'},
+  {id:'au',n:'Authority',q:'May B act on it now?',why:'Agent C already claimed this water and gets there first.',banner:'C claimed this water'},
+  {id:'pr',n:'Provenance',q:'Who said so?',why:'Nobody knows who sent the route, so B cannot tell a reliable tip from a rumour.',banner:'Sender unknown'},
 ];
 const chEl=document.getElementById('checks'); const off={};
 CHECKS.forEach(c=>{const l=document.createElement('label');l.className='check';
   l.innerHTML=c.fixed?`<input type="checkbox" checked disabled><span><b>${c.n}</b> <span class="q">${c.q}</span> <span class="q">· the route answers this one</span></span><span class="why" hidden></span>`
     :`<input type="checkbox" id="chk-${c.id}" checked><span><b>${c.n}</b> <span class="q">${c.q}</span></span><span class="why" hidden>${c.why}</span>`;
   chEl.appendChild(l); if(!c.fixed)l.querySelector('input').addEventListener('change',e=>{off[c.id]=!e.target.checked;l.classList.toggle('off',off[c.id]);l.querySelector('.why').hidden=!off[c.id];reset0();});});
-let b0=0, anim0=null, done0=false;
-function water0(){return off.id?[3,6]:[9,6];}
+let st={b:0,c:0,water:1,done:false,outcome:null}, anim0=null;
+function realWater(){return off.id?[3,6]:[9,6];}
+function banner(text,col){ctx0.font=`700 20px ${css('--body')}`;const w=ctx0.measureText(text).width+28;const x=(cv0._w-w)/2,y=cv0._h-54;
+  ctx0.globalAlpha=.94;ctx0.fillStyle=css('--panel');roundRect(ctx0,x,y,w,40,10);ctx0.fill();ctx0.globalAlpha=1;ctx0.strokeStyle=col;ctx0.lineWidth=3;roundRect(ctx0,x,y,w,40,10);ctx0.stroke();
+  ctx0.fillStyle=col;ctx0.textAlign='center';ctx0.textBaseline='middle';ctx0.fillText(text,cv0._w/2,y+20);}
+function topTag(text){ctx0.font=`700 15px ${css('--body')}`;const w=ctx0.measureText(text).width+20;ctx0.fillStyle=css('--pin');roundRect(ctx0,8,8,w,28,8);ctx0.fill();
+  ctx0.fillStyle=css('--panel');ctx0.textAlign='left';ctx0.textBaseline='middle';ctx0.fillText(text,18,22);}
 function draw0(){
   drawGrid(ctx0,cv0,C0,0,0,WALL0);
   const c=p=>[p[0]*C0+C0/2,p[1]*C0+C0/2];
   ctx0.strokeStyle=off.pr?css('--muted'):css('--song');ctx0.lineWidth=6;ctx0.lineJoin='round';ctx0.lineCap='round';
-  if(off.pr)ctx0.setLineDash([12,10]); ctx0.globalAlpha=.75;ctx0.beginPath();ROUTE0.forEach((p,i)=>{const[x,y]=c(p);i?ctx0.lineTo(x,y):ctx0.moveTo(x,y)});ctx0.stroke();ctx0.setLineDash([]);ctx0.globalAlpha=1;
-  const w=water0(); const [wx,wy]=c(w);
-  if(off.va){ctx0.strokeStyle=css('--water');ctx0.lineWidth=2.5;ctx0.setLineDash([5,5]);ctx0.beginPath();ctx0.arc(wx,wy+4,C0*.3,0,7);ctx0.stroke();ctx0.setLineDash([]);}
-  else drawWater(ctx0,wx,wy+6,C0*.7);
-  if(off.id){const [ex,ey]=c([9,6]);ctx0.fillStyle=css('--muted');ctx0.font=`500 14px ${css('--body')}`;ctx0.textAlign='center';ctx0.fillText('A meant here',ex,ey+C0*.42);}
-  if(off.au){const [cx,cy]=c([9,5]);drawRobot(ctx0,cx,cy,C0*.85,css('--brand2'),'C');}
+  if(off.pr)ctx0.setLineDash([12,10]);ctx0.globalAlpha=.7;ctx0.beginPath();ROUTE0.forEach((p,i)=>{const[x,y]=c(p);i?ctx0.lineTo(x,y):ctx0.moveTo(x,y)});ctx0.stroke();ctx0.setLineDash([]);ctx0.globalAlpha=1;
+  const [ex,ey]=c([9,6]);
+  if(off.id){ctx0.strokeStyle=css('--muted');ctx0.lineWidth=2;ctx0.setLineDash([4,4]);ctx0.strokeRect(ex-C0/2+4,ey-C0/2+4,C0-8,C0-8);ctx0.setLineDash([]);}
+  const w=realWater(); const [wx,wy]=c(w);
+  if(st.water>0.02){ctx0.globalAlpha=st.water;drawWater(ctx0,wx,wy+6,C0*.7);ctx0.globalAlpha=1;}
+  if(off.va&&st.water<=0.02){ctx0.strokeStyle=css('--water');ctx0.lineWidth=2.5;ctx0.setLineDash([5,5]);ctx0.beginPath();ctx0.arc(wx,wy+4,C0*.3,0,7);ctx0.stroke();ctx0.setLineDash([]);}
+  if(off.au){const [cx,cy]=c(CPATH[Math.min(st.c,CPATH.length-1)]);drawRobot(ctx0,cx,cy,C0*.85,css('--brand2'),'C');}
   if(off.pr){const [qx,qy]=c([1,1]);ctx0.fillStyle=css('--panel');ctx0.strokeStyle=css('--pin');ctx0.lineWidth=2.5;roundRect(ctx0,qx-16,qy-58,32,30,6);ctx0.fill();ctx0.stroke();
     ctx0.fillStyle=css('--pin');ctx0.font=`800 20px ${css('--body')}`;ctx0.textAlign='center';ctx0.textBaseline='middle';ctx0.fillText('?',qx,qy-43);}
-  const [bx,by]=c(PATH0[b0]); drawRobot(ctx0,bx,by,C0*.95,css('--robot'),'B');
+  const [bx,by]=c(PATH0[st.b]); drawRobot(ctx0,bx,by,C0*.95,css('--robot'),'B');
+  const tags=CHECKS.filter(k=>off[k.id]).map(k=>k.banner); if(tags.length)topTag(tags.join(' · '));
+  if(st.outcome)banner(st.outcome.text,st.outcome.ok?css('--song'):css('--pin'));
 }
 function verdict0(text,ok){const v=document.getElementById('verdict');v.className='verdict-line '+(ok?'ok':'no');v.textContent=text;}
-function reset0(){if(anim0){clearInterval(anim0);anim0=null;}b0=0;done0=false;draw0();
+function reset0(){if(anim0){clearInterval(anim0);anim0=null;}st={b:0,c:0,water:1,done:false,outcome:null};draw0();
   const n=Object.values(off).filter(Boolean).length;
-  verdict0(n?'The route is still correct, but acting on it now goes wrong.':'All five conditions hold: B may act on the route.',!n);}
-function finish0(){done0=true;draw0();
-  if(off.pr&&!off.id&&!off.va&&!off.au){verdict0('B arrived, but only by luck: it had no way to know the route was reliable.',false);return;}
-  if(off.id){verdict0('B followed the route perfectly and reached the wrong cell.',false);return;}
-  if(off.va){verdict0('B followed the route perfectly. The water was gone.',false);return;}
-  if(off.au){verdict0('B followed the route perfectly. C was already drinking there.',false);return;}
-  verdict0('B followed the route and reached the water.',true);}
-document.getElementById('play0').onclick=()=>{reset0(); if(reduce){b0=PATH0.length-1;finish0();return;}
-  anim0=setInterval(()=>{if(b0<PATH0.length-1){b0++;draw0();}else{clearInterval(anim0);anim0=null;finish0();}},140);};
+  verdict0(n?'Same correct route. Press Go to see what happens now.':'All conditions hold. Press Go.',!n);}
+function outcome0(){
+  if(off.id)return{ok:false,text:'✗ No water here: wrong place',v:'B followed the route perfectly and reached an empty cell. The water was somewhere else in B’s map.'};
+  if(off.au)return{ok:false,text:'✗ C got there first',v:'B followed the route perfectly, but C had claimed the water and arrived first. B’s trip was wasted.'};
+  if(off.va)return{ok:false,text:'✗ The water is gone',v:'B followed the route perfectly. The record was too old: the water had dried up.'};
+  if(off.pr)return{ok:false,text:'? Arrived, but only by luck',v:'B arrived, but it could not know whether to trust the route. With a bad sender, the same move would have failed.'};
+  return{ok:true,text:'✓ B reached the water',v:'All five conditions held, so acting on the route was safe.'};}
+function finish0(){const o=outcome0();st.done=true;st.outcome=o;
+  if(off.au)st.water=0; draw0(); verdict0(o.v,o.ok);}
+document.getElementById('play0').onclick=()=>{reset0(); const N=PATH0.length-1;
+  const step=()=>{ if(st.b<N){st.b++; if(off.au&&st.c<CPATH.length-1&&st.b%2===0)st.c++; if(off.au&&st.c>=CPATH.length-1)st.water=Math.max(0,st.water-0.25);
+      if(off.va)st.water=Math.max(0,1-st.b/(N-2)); draw0(); return true;} return false;};
+  if(reduce){while(step()){} finish0();return;}
+  anim0=setInterval(()=>{if(!step()){clearInterval(anim0);anim0=null;finish0();}},150);};
 reset0();
 
 // ---------- panel 1 ----------
