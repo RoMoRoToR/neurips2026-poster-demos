@@ -82,14 +82,17 @@ footer a{color:var(--brand)}
 <header>
   <div class="eyebrow">Interactive demo · PALM workshop · NeurIPS 2026</div>
   <h1>The Song, Not the Pin</h1>
-  <p class="lede">Agent memory systems store content: “water at (9, 4)”. But a correct record is <strong>not permission to act</strong>. It also needs five use conditions. Try them below.</p>
+  <p class="lede">The obvious fix for shared memory is to send the full route, not just the destination. But a correct route is <strong>not permission to act</strong>. It covers one of five use conditions; the other four must travel with it.</p>
 </header>
 
 <section class="panel" aria-labelledby="h-checks">
-  <h2 id="h-checks">1. Can B act on this record?<span>Untick a condition to see what goes wrong.</span></h2>
-  <div class="record"><span class="rec-k">Record from agent A</span><span class="rec-v">“There is water at (9, 4)”</span><span class="rec-s">correct · 12 steps old</span></div>
+  <h2 id="h-checks">1. The obvious fix: send the full route. Is that enough?<span>A sends B a correct route to the water. Untick a condition and press Go.</span></h2>
+  <div class="record"><span class="rec-k">Record from agent A</span><span class="rec-v">Route to water: up, along the top, down</span><span class="rec-s">correct route</span></div>
+  <canvas id="cv0" width="660" height="480" aria-label="Robot B, a wall, the water and the route from agent A"></canvas>
   <div class="checks" id="checks"></div>
+  <div class="controls"><button class="btn primary" id="play0">▶ Go</button></div>
   <div class="verdict-line" id="verdict" aria-live="polite"></div>
+  <p class="hint">The route only answers “how do I get there?”. The other four conditions must travel with the record too.</p>
 </section>
 
 <section class="panel" aria-labelledby="h-transport">
@@ -188,21 +191,53 @@ function drawRobot(ctx,cx,cy,s,col,label){ctx.fillStyle=col;roundRect(ctx,cx-s*0
   if(label){ctx.fillStyle=css('--panel');ctx.font=`700 ${Math.round(s*0.26)}px ${css('--body')}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(label,cx,cy+s*0.17);}}
 function drawPin(ctx,cx,cy,s){ctx.fillStyle=css('--pin');ctx.beginPath();ctx.arc(cx,cy-s*0.55,s*0.22,0,7);ctx.fill();ctx.beginPath();ctx.moveTo(cx-s*0.19,cy-s*0.45);ctx.lineTo(cx+s*0.19,cy-s*0.45);ctx.lineTo(cx,cy-s*0.12);ctx.closePath();ctx.fill();ctx.fillStyle=css('--panel');ctx.beginPath();ctx.arc(cx,cy-s*0.55,s*0.08,0,7);ctx.fill();}
 
-// ---------- panel 0: five use conditions ----------
+// ---------- panel 0: the route alone is not enough ----------
+const C0=60, cv0=document.getElementById('cv0'), ctx0=setupCanvas(cv0);
+const WALL0=new Set([2,3,4,5,6,7].map(y=>key(5,y)));
+const ROUTE0=[[1,6],[1,1],[9,1],[9,6]];
+function expand(pts){const out=[pts[0].slice()];for(let k=1;k<pts.length;k++){let [x,y]=out[out.length-1];const [tx,ty]=pts[k];while(x!==tx||y!==ty){x+=Math.sign(tx-x);y+=Math.sign(ty-y);out.push([x,y]);}}return out;}
+const PATH0=expand(ROUTE0);
 const CHECKS=[
-  {n:'Identity',q:'Which of B’s places does “(9, 4)” mean?',why:'B’s map is turned, so (9, 4) is a different cell for B. It walks to a place with no water.'},
-  {n:'Transport',q:'Can B get there?',why:'There is a wall on the way and B cannot plan around it. With only the pin, it gets stuck.'},
-  {n:'Provenance',q:'Who said so?',why:'Nobody knows who wrote it, so B cannot weigh it or tell repeated rumour from real evidence.'},
-  {n:'Validity',q:'Is it still fresh?',why:'The record is too old for how much B trusts the sender. The water may be gone.'},
-  {n:'Authority',q:'May B act on it now?',why:'Agent C has already claimed this water. Two agents walk to one target, one of them for nothing.'},
+  {id:'tr',n:'Transport',q:'How do I get there?',why:'',fixed:true},
+  {id:'id',n:'Identity',q:'Which of B’s places is it?',why:'B’s map is turned. The route is followed exactly, but it ends at the wrong cell.'},
+  {id:'va',n:'Validity',q:'Is it still fresh?',why:'The route is too old for how much B trusts A. B arrives, and the water is gone.'},
+  {id:'au',n:'Authority',q:'May B act on it now?',why:'Agent C claimed this water first. B walks the whole way for nothing.'},
+  {id:'pr',n:'Provenance',q:'Who said so?',why:'Nobody knows who sent the route, so B cannot tell a reliable tip from a rumour.'},
 ];
-const chEl=document.getElementById('checks');
-CHECKS.forEach((c,i)=>{const l=document.createElement('label');l.className='check';l.innerHTML=`<input type="checkbox" id="chk${i}" checked><span><b>${c.n}</b> <span class="q">${c.q}</span></span><span class="why" hidden>${c.why}</span>`;chEl.appendChild(l);
-  l.querySelector('input').addEventListener('change',updChecks);});
-function updChecks(){let firstOff=-1;[...chEl.children].forEach((l,i)=>{const on=l.querySelector('input').checked;l.classList.toggle('off',!on);l.querySelector('.why').hidden=on;if(!on&&firstOff<0)firstOff=i;});
-  const v=document.getElementById('verdict'); if(firstOff<0){v.className='verdict-line ok';v.textContent='All five hold: B may act on the record.';}
-  else{v.className='verdict-line no';v.textContent='The record is still correct, but B should not act on it yet.';}}
-updChecks();
+const chEl=document.getElementById('checks'); const off={};
+CHECKS.forEach(c=>{const l=document.createElement('label');l.className='check';
+  l.innerHTML=c.fixed?`<input type="checkbox" checked disabled><span><b>${c.n}</b> <span class="q">${c.q}</span> <span class="q">· the route answers this one</span></span><span class="why" hidden></span>`
+    :`<input type="checkbox" id="chk-${c.id}" checked><span><b>${c.n}</b> <span class="q">${c.q}</span></span><span class="why" hidden>${c.why}</span>`;
+  chEl.appendChild(l); if(!c.fixed)l.querySelector('input').addEventListener('change',e=>{off[c.id]=!e.target.checked;l.classList.toggle('off',off[c.id]);l.querySelector('.why').hidden=!off[c.id];reset0();});});
+let b0=0, anim0=null, done0=false;
+function water0(){return off.id?[3,6]:[9,6];}
+function draw0(){
+  drawGrid(ctx0,cv0,C0,0,0,WALL0);
+  const c=p=>[p[0]*C0+C0/2,p[1]*C0+C0/2];
+  ctx0.strokeStyle=off.pr?css('--muted'):css('--song');ctx0.lineWidth=6;ctx0.lineJoin='round';ctx0.lineCap='round';
+  if(off.pr)ctx0.setLineDash([12,10]); ctx0.globalAlpha=.75;ctx0.beginPath();ROUTE0.forEach((p,i)=>{const[x,y]=c(p);i?ctx0.lineTo(x,y):ctx0.moveTo(x,y)});ctx0.stroke();ctx0.setLineDash([]);ctx0.globalAlpha=1;
+  const w=water0(); const [wx,wy]=c(w);
+  if(off.va){ctx0.strokeStyle=css('--water');ctx0.lineWidth=2.5;ctx0.setLineDash([5,5]);ctx0.beginPath();ctx0.arc(wx,wy+4,C0*.3,0,7);ctx0.stroke();ctx0.setLineDash([]);}
+  else drawWater(ctx0,wx,wy+6,C0*.7);
+  if(off.id){const [ex,ey]=c([9,6]);ctx0.fillStyle=css('--muted');ctx0.font=`500 14px ${css('--body')}`;ctx0.textAlign='center';ctx0.fillText('A meant here',ex,ey+C0*.42);}
+  if(off.au){const [cx,cy]=c([9,5]);drawRobot(ctx0,cx,cy,C0*.85,css('--brand2'),'C');}
+  if(off.pr){const [qx,qy]=c([1,1]);ctx0.fillStyle=css('--panel');ctx0.strokeStyle=css('--pin');ctx0.lineWidth=2.5;roundRect(ctx0,qx-16,qy-58,32,30,6);ctx0.fill();ctx0.stroke();
+    ctx0.fillStyle=css('--pin');ctx0.font=`800 20px ${css('--body')}`;ctx0.textAlign='center';ctx0.textBaseline='middle';ctx0.fillText('?',qx,qy-43);}
+  const [bx,by]=c(PATH0[b0]); drawRobot(ctx0,bx,by,C0*.95,css('--robot'),'B');
+}
+function verdict0(text,ok){const v=document.getElementById('verdict');v.className='verdict-line '+(ok?'ok':'no');v.textContent=text;}
+function reset0(){if(anim0){clearInterval(anim0);anim0=null;}b0=0;done0=false;draw0();
+  const n=Object.values(off).filter(Boolean).length;
+  verdict0(n?'The route is still correct, but acting on it now goes wrong.':'All five conditions hold: B may act on the route.',!n);}
+function finish0(){done0=true;draw0();
+  if(off.pr&&!off.id&&!off.va&&!off.au){verdict0('B arrived, but only by luck: it had no way to know the route was reliable.',false);return;}
+  if(off.id){verdict0('B followed the route perfectly and reached the wrong cell.',false);return;}
+  if(off.va){verdict0('B followed the route perfectly. The water was gone.',false);return;}
+  if(off.au){verdict0('B followed the route perfectly. C was already drinking there.',false);return;}
+  verdict0('B followed the route and reached the water.',true);}
+document.getElementById('play0').onclick=()=>{reset0(); if(reduce){b0=PATH0.length-1;finish0();return;}
+  anim0=setInterval(()=>{if(b0<PATH0.length-1){b0++;draw0();}else{clearInterval(anim0);anim0=null;finish0();}},140);};
+reset0();
 
 // ---------- panel 1 ----------
 const cv1=document.getElementById('cv1'), ctx1=setupCanvas(cv1);
